@@ -30,68 +30,89 @@ module		axi_stream_insert_header #(
 // ===========Define Parameters and Internal Signals=================\
 // ==================================================================\
 
-reg 		[7:0]			data_regs	[31:0]	; 		// 32深度的寄存器组作为存储器
-reg 						read_axis			;		// insert后接收data_in的指示信号
-reg 						ready_insert_reg;		// 表示axi_stream_insert_header空闲，等待接收header信号
-reg 						valid_out_reg;		// 输出数据的标志信号
-reg			[5:0]			front				;		// 用来除去开头无效的字节
-reg 		[5:0]			rear				;		// 记录存储器有效的末尾位置
-reg 		[DATA_WD-1:0]	data_out_reg		;
-reg 		[DATA_BYTE_WD-1:0] keep_out_reg; 	
+reg [7:0] data_regs	[DATA_WD-1:0]; 		// 32深度的寄存器组作为存储器
+reg read_axis;		// insert后接收data_in的指示信号
+reg ready_insert_reg;		// 表示axi_stream_insert_header空闲，等待接收header信号
+reg valid_out_reg;		// 输出数据的标志信号
+reg	[5:0] front;		// 用来除去开头无效的字节
+reg [5:0] rear;		// 记录存储器有效的末尾位置
+reg [DATA_WD-1:0] data_out_reg;
+reg [DATA_BYTE_WD-1:0] keep_out_reg; 
+reg [DATA_WD-1 : 0] data_in_reg,	
+reg last_in_reg;
 
+always @(posedge clk or negedge rst_n) begin 
+		if(~rst_n) begin
+			data_in_reg <= 0;
+		end
+		else if (ready_in) begin
+			data_in_reg <= data_in;
+		end
+		else begin
+			data_in_reg <= data_in_reg;
+		end
+end
 
+always @(posedge clk or negedge rst_n) begin 
+		if(~rst_n) begin
+			last_in_reg <= 0;
+		end
+		else begin
+			last_in_reg <= last_in;
+		end
+end
 
 always @(posedge clk or negedge rst_n)begin
 		if(!rst_n)
-				ready_insert_reg		<=		1'b1;
-		else if((valid_insert && ready_insert) || (last_in && valid_in && ready_in))
-				ready_insert_reg			<=		1'b0;
+				ready_insert_reg<=1'b1;
+		else if((valid_insert && ready_insert) || (last_in_reg && valid_in && ready_in))
+				ready_insert_reg<=1'b0;
 		else if(last_out == 1'b1)
-				ready_insert_reg			<=		1'b1;
+				ready_insert_reg<=1'b1;
 end
 
 // read_axis:insert后接收data_in的指示信号
 always @(posedge clk or negedge rst_n)begin
 		if(!rst_n)
-				read_axis			<=		1'b0;
-		else if(last_in == 1'b1)
-				read_axis			<=		1'b0;
+				read_axis<=	1'b0;
+		else if(last_in_reg == 1'b1)
+				read_axis<=	1'b0;
 		else if(valid_insert == 1'b1 && ready_insert == 1'b1)
-				read_axis			<=		1'b1;
+				read_axis<=	1'b1;
 end
 
 // valid_out_reg：输出数据的标志信号
 always @(posedge clk or negedge rst_n)begin
 		if(!rst_n)
-				valid_out_reg		<=		1'b0;
-		else if(last_in && valid_in && ready_in)
-				valid_out_reg		<=		1'b1;
+				valid_out_reg<=	1'b0;
+		else if(last_in_reg && valid_in && ready_in)
+				valid_out_reg<=	1'b1;
 		else if(last_out == 1'b1)
-				valid_out_reg		<=		1'b0;
+				valid_out_reg<=	1'b0;
 end
 
 // front: 有效字节的开始位置
 always @(posedge clk or negedge rst_n) begin
 		if(ready_insert_reg == 1'b1 && (valid_insert == 1'b0 || ready_insert == 1'b0))
-				front				<=		'd0	;
+				front<=	'd0	;
 		else if(valid_insert && ready_insert)
-				front	<=	front + DATA_BYTE_WD - byte_insert_cnt;    //除去帧头无效的位，记录位置
-		else if(last_in == 1'b1 || valid_out_reg)
-				front 	<=	front + DATA_BYTE_WD;
+				front<=front + DATA_BYTE_WD - byte_insert_cnt;    //除去帧头无效的位，记录位置
+		else if(last_in_reg == 1'b1 || valid_out_reg)
+				front <=front + DATA_BYTE_WD;
 		else 	
-				front	<=	front;	
+				front<=	front;	
 end
 
 // rear:记录存储器有效的末尾位置
 always @(posedge clk or negedge rst_n)begin
 		if(ready_insert_reg == 1'b1 && (valid_insert == 1'b0 || ready_insert == 1'b0))
-				rear	<=		'd0	;
+				rear<=	'd0	;
 		else if(ready_insert && valid_insert)
-				rear	<=	rear + DATA_BYTE_WD	;	// 记录存储器存储的字节个数
+				rear<=	rear + DATA_BYTE_WD	;	// 记录存储器存储的字节个数
 		else if(valid_in && read_axis)
-				rear	<=	rear + swar(keep_in);	// 最后一个data_in有无效字节，需要特殊计算
+				rear<=	rear + swar(keep_in);	// 最后一个data_in有无效字节，需要特殊计算
 		else 
-				rear	<=	rear;
+				rear<=	rear;
 end
 
 // data_out_reg:输出数据寄存
@@ -99,11 +120,11 @@ genvar 	i ;
 generate for(i = 'd0; i < DATA_BYTE_WD; i = i+1)begin													
 		always @(posedge clk or negedge rst_n)begin
 				if(ready_insert_reg == 1'b1)
-					data_out_reg[DATA_WD-1-i*8:DATA_WD-(i+1)*8] <= 0 ;
-				else if(last_in == 1'b1 || (valid_out_reg && last_out == 1'b0))
-					data_out_reg[DATA_WD-1-i*8:DATA_WD-(i+1)*8] <= data_regs[front+i];
+					data_out_reg[DATA_WD-1-i<<3:DATA_WD-(i+1)<<3] <= 0 ;
+				else if(last_in_reg == 1'b1 || (valid_out_reg && last_out == 1'b0))
+					data_out_reg[DATA_WD-1-i<<3:DATA_WD-(i+1)<<3] <= data_regs[front+i];
 				else 
-					data_out_reg[DATA_WD-1-i*8:DATA_WD-(i+1)*8] <= data_out_reg[DATA_WD-1-i*8:DATA_WD-(i+1)*8];
+					data_out_reg[DATA_WD-1-i<<3:DATA_WD-(i+1)<<3] <= data_out_reg[DATA_WD-1-i<<3:DATA_WD-(i+1)<<3];
 		end
 end
 endgenerate
@@ -113,7 +134,7 @@ generate for(i = 'd0; i < DATA_BYTE_WD; i = i+1)begin
 		always @(posedge clk or negedge rst_n)begin
 			if(ready_insert_reg == 1'b1)
 					keep_out_reg[i]	<=	0;
-			else if(last_in == 1'b1 || (valid_out_reg && last_out == 1'b0))
+			else if(last_in_reg == 1'b1 || (valid_out_reg && last_out == 1'b0))
 					keep_out_reg[DATA_BYTE_WD-i-1]	<=	front + i < rear ? 1 : 0;
 			else 
 					keep_out_reg[i] <= keep_out_reg[i];
@@ -126,39 +147,39 @@ genvar 	j;
 generate for (j = 'd0; j < 32; j = j+1)begin
 		always @(posedge clk or negedge rst_n)begin
 				if(ready_insert_reg == 1'b1 && (valid_insert == 1'b0 || ready_insert == 1'b0))
-						data_regs[j]	<=	'd0				;
+						data_regs[j]<=	'd0	;
 				else if(ready_insert_reg == 1'b1 && j >= rear && j < rear + DATA_BYTE_WD && valid_insert == 1'b1 && ready_insert == 1'b1)
-						data_regs[j]	<=	data_insert[DATA_WD-1-(j-rear)*8-:8];  		// 将插入的帧头加入存储器
+						data_regs[j]<=	data_insert[DATA_WD-1-(j-rear)<<3-:8];  		// 将插入的帧头加入存储器
 				else if(read_axis && ready_in == 1'b1 && valid_in == 1'b1 && j >= rear && j < rear +DATA_BYTE_WD)
-						data_regs[j]	<=	data_in[DATA_WD-1-(j-rear)*8-:8]	;			// 将输入data_in数据加入存储器
+						data_regs[j]<=data_in_reg[DATA_WD-1-(j-rear)<<3:8];			// 将输入data_in数据加入存储器
 				else 
-						data_regs[j]	<=	data_regs[j]						;
+						data_regs[j]<=data_regs[j];
 		end
 end
 endgenerate
 
 
 // 计算1的数量
-function 	[DATA_WD:0] 	swar;
-	input		[DATA_WD:0]		data_in;
-	reg			[DATA_WD:0]		i;
+function 	[DATA_WD:0] swar;
+	input	[DATA_WD:0]	data_in;
+	reg		[DATA_WD:0]	i;
 		begin
-				i			=		data_in	;
-				i 	=	(i & 32'h5555_5555) + ({0, i[DATA_WD:1]} & 32'h5555_5555);
-				i 	=	(i & 32'h3333_3333) + ({0, i[DATA_WD:2]} & 32'h3333_3333);
-				i 	=	(i & 32'h0F0F_0F0F) + ({0, i[DATA_WD:4]} & 32'h0F0F_0F0F);
-				i 	= 	i * (32'h0101_0101)	;
+				i=data_in;
+				i =	(i & 32'h5555_5555) + ({0, i[DATA_WD:1]} & 32'h5555_5555);
+				i =	(i & 32'h3333_3333) + ({0, i[DATA_WD:2]} & 32'h3333_3333);
+				i =	(i & 32'h0F0F_0F0F) + ({0, i[DATA_WD:4]} & 32'h0F0F_0F0F);
+				i = i * (32'h0101_0101)	;
 				swar =	i[31:24];
 		end
 endfunction
 
 
-assign 		ready_in	=	 (read_axis == 1'b1 || last_in == 1'b1) ? 1'b1 : 1'b0 ;  // ready_in:握手信号，表示axi_stream_insert_header可以接收数据
-assign 		ready_insert =	  ready_insert_reg	;						// ready_insert:握手信号，表示axi_stream_insert_header可以插入头数据
-assign 		valid_out	=	 valid_out_reg	;						// valid_out:输出数据有效信号
-assign 		data_out 	=	 data_out_reg		;						// data_out:输出数据
-assign 		keep_out	=	keep_out_reg		;						// keep_out:输出数据的有效位寄存
-assign 		last_out	=	(valid_out_reg && front >= rear) ? 1'b1 : 1'b0	;	// last_out:输出最后一个有效数据
+assign 	ready_in=(read_axis == 1'b1 || last_in_reg == 1'b1) ? 1'b1 : 1'b0 ;  // ready_in:握手信号，表示axi_stream_insert_header可以接收数据
+assign 	ready_insert =ready_insert_reg;						// ready_insert:握手信号，表示axi_stream_insert_header可以插入头数据
+assign 	valid_out=valid_out_reg;						// valid_out:输出数据有效信号
+assign 	data_out=data_out_reg;						// data_out:输出数据
+assign 	keep_out=keep_out_reg;						// keep_out:输出数据的有效位寄存
+assign 	last_out=(valid_out_reg && front >= rear) ? 1'b1 : 1'b0;	// last_out:输出最后一个有效数据
 
 
 endmodule
