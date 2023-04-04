@@ -1,6 +1,6 @@
 //~ `New testbench
 `timescale  1ns / 1ps
-module tb_axi_stream_insert_header; parameter PERIOD = 10 ; parameter DATA_WD = 32 ; parameter DATA_BYTE_WD = DATA_WD / 8 ; parameter BYTE_CNT_WD = $clog2(DATA_BYTE_WD);
+module top_module; parameter PERIOD = 10 ; parameter DATA_WD = 32 ; parameter DATA_BYTE_WD = DATA_WD / 8 ; parameter BYTE_CNT_WD = $clog2(DATA_BYTE_WD);
     
     // axi_stream_insert_header Inputs
     reg   clk                                = 0 ;
@@ -10,9 +10,9 @@ module tb_axi_stream_insert_header; parameter PERIOD = 10 ; parameter DATA_WD = 
     reg   [DATA_BYTE_WD-1 : 0]  keep_in      = 0 ;
     reg   ready_out                          = 1 ;
     reg   valid_insert                       = 0 ;
-    reg   [DATA_WD-1 : 0]  header_insert     = 0 ;
+    reg   [DATA_WD-1 : 0]  data_insert     = 0 ;
     reg   [DATA_BYTE_WD-1 : 0]  keep_insert  = 0 ;
-    reg   [BYTE_CNT_WD : 0]  byte_insert_cnt = 0 ;
+    reg   [BYTE_CNT_WD-1 : 0]  byte_insert_cnt = 0 ;
     
     // axi_stream_insert_header Outputs
     wire  ready_in                             ;
@@ -28,7 +28,8 @@ module tb_axi_stream_insert_header; parameter PERIOD = 10 ; parameter DATA_WD = 
     begin
         forever #(PERIOD/2)  clk = ~clk;
     end
-    
+    initial `probe_start; 
+    `probe(clk);   
     initial
     begin
         #(PERIOD*2) rst_n = 1;
@@ -47,9 +48,9 @@ module tb_axi_stream_insert_header; parameter PERIOD = 10 ; parameter DATA_WD = 
     .last_in                 (last_in),
     .ready_out               (ready_out),
     .valid_insert            (valid_insert),
-    .header_insert           (header_insert    [DATA_WD-1 : 0]),
+        .data_insert           (data_insert    [DATA_WD-1 : 0]),
     .keep_insert             (keep_insert      [DATA_BYTE_WD-1 : 0]),
-    .byte_insert_cnt         (byte_insert_cnt  [BYTE_CNT_WD : 0]),
+        .byte_insert_cnt         (byte_insert_cnt  [BYTE_CNT_WD-1 : 0]),
     
     .ready_in                (ready_in),
     .valid_out               (valid_out),
@@ -70,11 +71,11 @@ module tb_axi_stream_insert_header; parameter PERIOD = 10 ; parameter DATA_WD = 
         if (!rst_n) data_in <= 32'h0;
         else if (ready_in)
         case(cnt)
-            0: data_in       <= 32'h0A0B0C0D;
-            1: data_in       <= 32'h0E0F0001;
-            2: data_in       <= 32'h02030405;
-            3: data_in       <= 32'h06070809;
-            4: data_in       <= 32'h000A0000;
+            0: data_in       <= 32'h120B0C0D;
+            1: data_in       <= 32'h6E0F0001;
+            2: data_in       <= 32'h42030405;
+            3: data_in       <= 32'h36AB0809;
+            4: data_in       <= 32'h000D00E4;
             default: data_in <= 0;
         endcase
         else data_in <= data_in;
@@ -120,7 +121,7 @@ module tb_axi_stream_insert_header; parameter PERIOD = 10 ; parameter DATA_WD = 
     initial
     begin
         
-        header_insert   = 32'h0F0E0D0C;
+        data_insert   = 32'h0F0E0D0C;
         keep_insert     = 4'b0111;
         byte_insert_cnt = 3'b011;
         #(PERIOD*200)
