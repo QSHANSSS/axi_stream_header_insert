@@ -1,4 +1,4 @@
-//~ `New testbench
+//testbench simulated in Iverilog, used probe for waveform
 `timescale  1ns / 1ps
 module top_module; parameter PERIOD = 10 ; parameter DATA_WD = 32 ; parameter DATA_BYTE_WD = DATA_WD / 8 ; parameter BYTE_CNT_WD = $clog2(DATA_BYTE_WD);
     
@@ -60,22 +60,25 @@ module top_module; parameter PERIOD = 10 ; parameter DATA_WD = 32 ; parameter DA
     .ready_insert            (ready_insert)
     );
     
+    integer seed;
+    initial  begin seed = 2; end
+    
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) valid_insert            <= 0;
         else if (ready_insert) valid_insert <= 1;
         else valid_insert                   <= 0;
     end
-    
+   
     reg [3:0] cnt = 0;
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) data_in <= 32'h0;
         else if (ready_in)
         case(cnt)
-            0: data_in       <= 32'h120B0C0D;
-            1: data_in       <= 32'h6E0F0001;
-            2: data_in       <= 32'h42030405;
-            3: data_in       <= 32'h36AB0809;
-            4: data_in       <= 32'h000D00E4;
+            0: data_in       <= $random(seed);	//32'h120B0C0D;
+            1: data_in       <= $random(seed);	//32'h6E0F0001;
+            2: data_in       <= $random(seed);	//32'h42030405;
+            3: data_in       <= $random(seed);  //32'h36AB0809;
+            4: data_in       <= $random(seed);	//32'h000D00E4;
             default: data_in <= 0;
         endcase
         else data_in <= data_in;
@@ -89,7 +92,7 @@ module top_module; parameter PERIOD = 10 ; parameter DATA_WD = 32 ; parameter DA
             1: keep_in       <= 4'b1111;
             2: keep_in       <= 4'b1111;
             3: keep_in       <= 4'b1111;
-            4: keep_in       <= 4'b1100;
+            4: keep_in       <= 4'b1110;//{$random(seed)}%2?({$random(seed)}%2?4'b1000:4'b1100):({$random(seed)}%2?4'b1110:4'b1111);   
             default: keep_in <= 0;
         endcase
         else keep_in <= keep_in;
@@ -121,8 +124,8 @@ module top_module; parameter PERIOD = 10 ; parameter DATA_WD = 32 ; parameter DA
     initial
     begin
         
-        data_insert   = 32'h0F0E0D0C;
-        keep_insert     = 4'b0111;
+        data_insert   = $random(seed)	;//32'h0F0E0D0C;
+        keep_insert     = 4'b1111;//{$random(seed)}%2?({$random(seed)}%2?4'b1000:4'b1100):({$random(seed)}%2?4'b1110:4'b1111)
         byte_insert_cnt = 3'b011;
         #(PERIOD*200)
         $finish;
