@@ -92,7 +92,7 @@ module top_module; parameter PERIOD = 10 ; parameter DATA_WD = 32 ; parameter DA
             1: keep_in       <= 4'b1111;
             2: keep_in       <= 4'b1111;
             3: keep_in       <= 4'b1111;
-            4: keep_in       <= 4'b1110;//{$random(seed)}%2?({$random(seed)}%2?4'b1000:4'b1100):({$random(seed)}%2?4'b1110:4'b1111);   
+            4: keep_in       <= {$random(seed)}%2?({$random(seed)}%2?4'b1000:4'b1100):({$random(seed)}%2?4'b1110:4'b1111);   
             default: keep_in <= 0;
         endcase
         else keep_in <= keep_in;
@@ -125,7 +125,7 @@ module top_module; parameter PERIOD = 10 ; parameter DATA_WD = 32 ; parameter DA
     begin
         
         data_insert   = $random(seed)	;//32'h0F0E0D0C;
-        keep_insert     = 4'b1111;//{$random(seed)}%2?({$random(seed)}%2?4'b1000:4'b1100):({$random(seed)}%2?4'b1110:4'b1111)
+        keep_insert     = {$random(seed)}%2?({$random(seed)}%2?4'b0001:4'b0011):({$random(seed)}%2?4'b0111:4'b1111)
         byte_insert_cnt = 3'b011;
         #(PERIOD*200)
         $finish;
